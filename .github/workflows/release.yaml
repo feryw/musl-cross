@@ -9,12 +9,12 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04-arm
     strategy:
       fail-fast: true
       matrix:
         target:
-          - aarch64-unknown-linux-musl
+          # - aarch64-unknown-linux-musl
           # - arm-unknown-linux-musleabi
           # - arm-unknown-linux-musleabihf
           # - armv7-unknown-linux-musleabi
@@ -44,21 +44,25 @@ jobs:
           DEBIAN_FRONTEND=noninteractive sudo apt-get -y update
           DEBIAN_FRONTEND=noninteractive sudo apt-get -y install apt-utils
           DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ccache
+          
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
           submodules: true
+          
       - name: Set up ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
           key: ${{ runner.os }}-toolchain-build
           restore-keys: |
             ${{ runner.os }}-toolchain-build-
+            
       - name: Build
         run: |
           sudo rm -rf /opt/*
           ./scripts/make ${{ matrix.target }}
+          
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
@@ -66,6 +70,7 @@ jobs:
           path: ${{ matrix.target }}.tar.xz
           if-no-files-found: error
           retention-days: 1
+          
       - name: Upload checksum
         uses: actions/upload-artifact@v4
         with:
@@ -80,17 +85,20 @@ jobs:
     needs:
       - build
     if: github.event_name == 'release'
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: release
           pattern: "*.tar.*"
           merge-multiple: true
+          
       - name: Generate checksums
         run: |
           echo "| Filename | Sha256sum |" > RELEASE.md
@@ -98,6 +106,7 @@ jobs:
           for i in release/*.sha256; do
             echo "| $(basename $i .sha256) | $(cat $i) |" >> RELEASE.md
           done
+          
       - name: Upload artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
